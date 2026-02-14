@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "Insight Study Companion",
+    "slug": "insight-study-companion-v2",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "insight-study",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.insightstudy.companion"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#1e3a5f"
+      },
+      "package": "com.insightstudy.companion"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-sqlite"
+    ]
+  }
+}
