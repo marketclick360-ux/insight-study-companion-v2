@@ -1,47 +1,72 @@
 import { Tabs } from 'expo-router';
-import { Text, View } from 'react-native';
-
-const TabIcon = ({ label, focused }: { label: string; focused: boolean }) => (
-  <Text style={{ fontSize: 10, color: focused ? '#1e3a5f' : '#888', marginTop: 2 }}>{label}</Text>
-);
+import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function TabsLayout() {
+  const { colors } = useTheme();
+
   return (
     <Tabs
       screenOptions={{
-        headerStyle: { backgroundColor: '#f0f4f8' },
-        headerTitleStyle: { color: '#1e3a5f', fontWeight: '600' },
-        tabBarStyle: { backgroundColor: '#fff', borderTopColor: '#e5e5e5', paddingTop: 4 },
-        tabBarActiveTintColor: '#1e3a5f',
-        tabBarInactiveTintColor: '#888',
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textSecondary,
+        tabBarStyle: {
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
+          paddingTop: 4,
+        },
+        headerStyle: {
+          backgroundColor: colors.surface,
+        },
+        headerTintColor: colors.text,
+        headerTitleStyle: {
+          fontWeight: '600',
+        },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Dashboard',
-          tabBarLabel: ({ focused }) => <TabIcon label="Dashboard" focused={focused} />,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="home" size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
-        name="registry"
+        name="study"
         options={{
-          title: 'Registry',
-          tabBarLabel: ({ focused }) => <TabIcon label="Registry" focused={focused} />,
+          title: 'Study',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="book" size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="review"
         options={{
           title: 'Review',
-          tabBarLabel: ({ focused }) => <TabIcon label="Review" focused={focused} />,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="refresh" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="progress"
+        options={{
+          title: 'Progress',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="stats-chart" size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
           title: 'Settings',
-          tabBarLabel: ({ focused }) => <TabIcon label="Settings" focused={focused} />,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="settings" size={size} color={color} />
+          ),
         }}
       />
     </Tabs>
