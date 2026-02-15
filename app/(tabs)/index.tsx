@@ -1,9 +1,55 @@
 import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { Link } from 'expo-router';
+import { v4 as uuidv4 } from 'uuid';
+import { and, eq, inArray, lte } from 'drizzle-orm';
+
 import { db } from '../../src/db/client';
-import { topics, reviews } from '../../src/db/schema';
-import { eq, lte } from 'drizzle-orm';
+import { reviews, studyEntries, topics } from '../../src/db/schema';
+
+async function bootstrapReviewsFromStudyEntries(now: number) {
+  // Max smoothness: if a topic has at least one study entry but no review row yet,
+  // create an initial review row due immediately so Dashboard + Review aren't empty.
+  const studied = await db.select({ topicId: studyEntries.topicId }).from(studyEntries);
+  const studiedIds = Array.from(new Set(studied.map((r) => r.topicId).filter(Boolean)));
+  if (!studiedIds.length) return;
+
+  const activeTopics = await db
+    .select({ id: topics.id, status: topics.status })
+    .from(topics)
+    .where(and(inArray(topics.id, studiedIds), eq(topics.isArchived, 0)));
+
+  const activeIds = activeTopics.map((t) => t.id);
+  if (!activeIds.length) return;
+
+  const existing = await db
+    .select({ topicId: reviews.topicId })
+    .from(reviews)
+    .where(inArray(reviews.topicId, activeIds));
+
+  const existingSet = new Set(existing.map((r) => r.topicId));
+  const missingIds = activeIds.filter((id) => !existingSet.has(id));
+  if (!missingIds.length) return;
+
+  await db.insert(reviews).values(
+    missingIds.map((topicId) => ({
+      id: uuidv4(),
+      topicId,
+      dueAt: now,
+      updatedAt: now,
+    }))
+  );
+
+  await db
+    .update(topics)
+    .set({ nextDueAt: now, updatedAt: now })
+    .where(inArray(topics.id, missingIds));
+
+  await db
+    .update(topics)
+    .set({ status: 'studied_once', updatedAt: now })
+    .where(and(inArray(topics.id, missingIds), eq(topics.status, 'not_studied')));
+}
 
 export default function Dashboard() {
   const [dueCount, setDueCount] = useState(0);
@@ -16,8 +62,21 @@ export default function Dashboard() {
 
   async function loadStats() {
     const now = Date.now();
-    const allTopics = await db.select().from(topics).where(eq(topics.isArchived, 0));
-    const dueReviews = await db.select().from(reviews).where(lte(reviews.dueAt, now));
+
+    // Ensure studied topics immediately create due review rows.
+    await bootstrapReviewsFromStudyEntries(now);
+
+    const allTopics = await db
+      .select({ id: topics.id, status: topics.status })
+      .from(topics)
+      .where(eq(topics.isArchived, 0));
+
+    const dueReviews = await db
+      .select({ id: reviews.id })
+      .from(reviews)
+      .innerJoin(topics, eq(reviews.topicId, topics.id))
+      .where(and(eq(topics.isArchived, 0), lte(reviews.dueAt, now)));
+
     setTotalTopics(allTopics.length);
     setStudiedCount(allTopics.filter((t) => t.status !== 'not_studied').length);
     setDueCount(dueReviews.length);
@@ -54,7 +113,9 @@ export default function Dashboard() {
 
       <View style={styles.infoBox}>
         <Text style={styles.infoTitle}>No definitions stored</Text>
-        <Text style={styles.infoText}>This app stores only your own summaries, recall questions, and jw.org URLs. No jw.org content is cached or copied.</Text>
+        <Text style={styles.infoText}>
+          This app stores only your own summaries, recall questions, and jw.org URLs. No jw.org content is cached or copied.
+        </Text>
       </View>
     </ScrollView>
   );
