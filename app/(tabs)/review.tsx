@@ -104,6 +104,52 @@ function computePriority(it: ReviewCardItem, now: number) {
   );
 }
 
+async function bootstrapReviewsFromStudyEntries(now: number) {
+  // Max smoothness: if a topic has at least one study entry but no review row yet,
+  // create an initial review row due immediately so Review isn't empty.
+  const studied = await db.select({ topicId: studyEntries.topicId }).from(studyEntries);
+  const studiedIds = Array.from(new Set(studied.map((r) => r.topicId).filter(Boolean)));
+  if (!studiedIds.length) return;
+
+  const activeTopics = await db
+    .select({ id: topics.id, status: topics.status })
+    .from(topics)
+    .where(and(inArray(topics.id, studiedIds), eq(topics.isArchived, 0)));
+
+  const activeIds = activeTopics.map((t) => t.id);
+  if (!activeIds.length) return;
+
+  const existing = await db
+    .select({ topicId: reviews.topicId })
+    .from(reviews)
+    .where(inArray(reviews.topicId, activeIds));
+
+  const existingSet = new Set(existing.map((r) => r.topicId));
+  const missingIds = activeIds.filter((id) => !existingSet.has(id));
+  if (!missingIds.length) return;
+
+  await db.insert(reviews).values(
+    missingIds.map((topicId) => ({
+      id: uuidv4(),
+      topicId,
+      dueAt: now,
+      updatedAt: now,
+      // other fields use table defaults
+    }))
+  );
+
+  // Make the topic reflect that it has entered the learning loop.
+  await db
+    .update(topics)
+    .set({ nextDueAt: now, updatedAt: now })
+    .where(inArray(topics.id, missingIds));
+
+  await db
+    .update(topics)
+    .set({ status: 'studied_once', updatedAt: now })
+    .where(and(inArray(topics.id, missingIds), eq(topics.status, 'not_studied')));
+}
+
 export default function ReviewScreen() {
   const { colors } = useTheme();
 
@@ -270,6 +316,8 @@ export default function ReviewScreen() {
     setLoading(true);
     try {
       const now = Date.now();
+
+      await bootstrapReviewsFromStudyEntries(now);
 
       const dueRows = (await db
         .select({
