@@ -10,7 +10,7 @@ browser.
 ## Architecture
 
 ```
-  Browser (public/index.html)
+  Browser (index.html)
       │  POST /api/session   → start a session against the existing agent
       │  POST /api/chat (SSE) → send a message, stream the reply
       ▼
@@ -51,7 +51,7 @@ progressive (token-by-token) streaming.
 2. In Vercel, **Import** the repo and set **Root Directory** to `bible-study-web`.
 3. Under **Settings → Environment Variables**, add `ANTHROPIC_API_KEY` (and,
    optionally, `AGENT_ID` / `ENVIRONMENT_ID` to override the defaults).
-4. Deploy. Vercel serves `public/index.html` statically and runs `api/index.py`
+4. Deploy. Vercel serves the root `index.html` statically and runs `api/index.py`
    as a Python serverless function (routes under `/api/*`).
 
 ### ⚠️ Streaming caveat on Vercel
@@ -81,7 +81,7 @@ production.
 | File | Purpose |
 |------|---------|
 | `api/index.py` | Flask backend — session + SSE chat endpoints |
-| `public/index.html` | Single-page mobile UI (Markdown via `marked` + `DOMPurify`) |
+| `index.html` | Single-page mobile UI (Markdown via `marked` + `DOMPurify`) |
 | `requirements.txt` | Python deps (`flask`, `anthropic`) |
 | `vercel.json` | Routing + function `maxDuration` |
 | `.env.example` | Environment variable template |

@@ -24,8 +24,9 @@ from flask import Flask, Response, jsonify, request, send_from_directory
 AGENT_ID = os.environ.get("AGENT_ID", "agent_019X8z44NWaA3kPfZyXW1gA2")
 ENVIRONMENT_ID = os.environ.get("ENVIRONMENT_ID", "env_01TdQSn1EZctcYRjtVQag88b")
 
-# public/ sits next to this file's parent (../public).
-PUBLIC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "public")
+# index.html sits one level up from this file (the project root). On Vercel it
+# is served statically from there; locally Flask serves it from the same place.
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Reused across warm invocations. Reads ANTHROPIC_API_KEY from the environment.
 client = Anthropic()
@@ -38,15 +39,12 @@ def sse(obj):
     return "data: " + json.dumps(obj) + "\n\n"
 
 
-# --- Static (local dev convenience) ---------------------------------------
+# --- Static -----------------------------------------------------------------
+# Local dev convenience: serve the UI from Flask. On Vercel, the root
+# index.html is served statically and this route is only a fallback.
 @app.route("/")
 def index():
-    return send_from_directory(PUBLIC_DIR, "index.html")
-
-
-@app.route("/<path:path>")
-def static_files(path):
-    return send_from_directory(PUBLIC_DIR, path)
+    return send_from_directory(ROOT_DIR, "index.html")
 
 
 # --- API -------------------------------------------------------------------
