@@ -29,15 +29,21 @@ one.
 
 ```bash
 cd bible-study-web
+python3 -m venv .venv && source .venv/bin/activate   # recommended
 pip install -r requirements.txt
 export ANTHROPIC_API_KEY=sk-ant-...        # your key
 python api/index.py
 ```
 
-Open <http://localhost:5000> and send "Study Jeremiah 8".
+Open <http://localhost:5001> and send "Study Jeremiah 8".
 
 Locally, Flask serves both the UI and the API on one process, and you get true
 progressive (token-by-token) streaming.
+
+> **Why 5001?** On macOS, port 5000 is taken by the AirPlay Receiver service,
+> which returns "access denied" before your app ever sees the request. The app
+> defaults to **5001** to avoid it. Override with `PORT=8080 python api/index.py`
+> if you want a different port.
 
 ## Deploy to Vercel
 

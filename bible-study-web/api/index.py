@@ -134,6 +134,7 @@ def chat():
 
 if __name__ == "__main__":
     # Local dev: serves the UI and the API on one process. Threaded so the SSE
-    # stream doesn't block other requests.
-    port = int(os.environ.get("PORT", "5000"))
+    # stream doesn't block other requests. Defaults to 5001 because macOS
+    # AirPlay Receiver occupies 5000 and returns "access denied".
+    port = int(os.environ.get("PORT", "5001"))
     app.run(host="0.0.0.0", port=port, threaded=True, debug=True)
