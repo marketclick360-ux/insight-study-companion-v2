@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1a1410" />
+  <title>Bible Study Companion</title>
+  <!-- Markdown rendering + XSS-safe sanitization -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+  <style>
+    :root {
+      --bg: #1a1410;
+      --bg-elev: #241c16;
+      --surface: #2c221a;
+      --user-bubble: #6b4a2b;
+      --user-text: #fdf6ec;
+      --agent-text: #f3e9da;
+      --accent: #e0a458;
+      --accent-soft: #c97b3f;
+      --muted: #a8957f;
+      --border: #3a2d22;
+      --danger: #e07a5f;
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: var(--bg);
+      color: var(--agent-text);
+      font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+      font-size: 18px;
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+    }
+
+    header {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 18px;
+      padding-top: max(14px, env(safe-area-inset-top));
+      background: var(--bg-elev);
+      border-bottom: 1px solid var(--border);
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: var(--accent);
+      letter-spacing: 0.3px;
+    }
+
+    .new-study-btn {
+      flex: 0 0 auto;
+      background: transparent;
+      color: var(--accent);
+      border: 1px solid var(--accent-soft);
+      border-radius: 999px;
+      padding: 8px 16px;
+      font-size: 0.85rem;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+    .new-study-btn:active { background: var(--accent-soft); color: var(--bg); }
+
+    #messages {
+      flex: 1 1 auto;
+      overflow-y: auto;
+      padding: 18px 16px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .msg {
+      max-width: 86%;
+      padding: 14px 18px;
+      border-radius: var(--radius);
+      word-wrap: break-word;
+      overflow-wrap: anywhere;
+    }
+
+    .msg.user {
+      align-self: flex-end;
+      background: var(--user-bubble);
+      color: var(--user-text);
+      border-bottom-right-radius: 6px;
+    }
+
+    .msg.agent {
+      align-self: flex-start;
+      background: var(--surface);
+      color: var(--agent-text);
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 6px;
+    }
+
+    .msg.system {
+      align-self: center;
+      background: transparent;
+      color: var(--muted);
+      border: 1px dashed var(--border);
+      font-size: 0.9rem;
+      max-width: 92%;
+      text-align: center;
+    }
+    .msg.system.error { color: var(--danger); border-color: var(--danger); }
+
+    /* Markdown styling inside agent bubbles */
+    .msg.agent h1, .msg.agent h2, .msg.agent h3 {
+      color: var(--accent);
+      line-height: 1.3;
+      margin: 0.6em 0 0.3em;
+    }
+    .msg.agent h1 { font-size: 1.35rem; }
+    .msg.agent h2 { font-size: 1.2rem; }
+    .msg.agent h3 { font-size: 1.08rem; }
+    .msg.agent p { margin: 0.5em 0; }
+    .msg.agent ul, .msg.agent ol { margin: 0.5em 0; padding-left: 1.4em; }
+    .msg.agent li { margin: 0.25em 0; }
+    .msg.agent strong { color: #f6d8a8; }
+    .msg.agent em { color: var(--agent-text); }
+    .msg.agent blockquote {
+      margin: 0.6em 0;
+      padding: 0.2em 0 0.2em 1em;
+      border-left: 3px solid var(--accent-soft);
+      color: var(--muted);
+    }
+    .msg.agent code {
+      background: #1c1610;
+      padding: 1px 6px;
+      border-radius: 6px;
+      font-size: 0.9em;
+      font-family: "SF Mono", Menlo, Consolas, monospace;
+    }
+    .msg.agent pre {
+      background: #14100b;
+      padding: 12px;
+      border-radius: 12px;
+      overflow-x: auto;
+    }
+    .msg.agent pre code { background: none; padding: 0; }
+    .msg.agent a { color: var(--accent); }
+    .msg.agent > :first-child { margin-top: 0; }
+    .msg.agent > :last-child { margin-bottom: 0; }
+
+    .typing { display: inline-block; color: var(--muted); }
+    .typing::after {
+      content: "▍";
+      animation: blink 1s steps(2, start) infinite;
+    }
+    @keyframes blink { to { visibility: hidden; } }
+
+    form#composer {
+      flex: 0 0 auto;
+      display: flex;
+      gap: 10px;
+      padding: 12px 14px;
+      padding-bottom: max(12px, env(safe-area-inset-bottom));
+      background: var(--bg-elev);
+      border-top: 1px solid var(--border);
+    }
+
+    #input {
+      flex: 1 1 auto;
+      resize: none;
+      max-height: 140px;
+      min-height: 48px;
+      padding: 12px 16px;
+      border-radius: 24px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--agent-text);
+      font-family: inherit;
+      font-size: 1rem;
+      line-height: 1.4;
+    }
+    #input:focus { outline: none; border-color: var(--accent-soft); }
+    #input::placeholder { color: var(--muted); }
+
+    #send {
+      flex: 0 0 auto;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      border: none;
+      background: var(--accent);
+      color: var(--bg);
+      font-size: 1.3rem;
+      cursor: pointer;
+      align-self: flex-end;
+      transition: opacity 0.15s ease, transform 0.1s ease;
+    }
+    #send:disabled { opacity: 0.4; cursor: default; }
+    #send:not(:disabled):active { transform: scale(0.92); }
+
+    .empty-hint {
+      align-self: center;
+      margin: auto 0;
+      text-align: center;
+      color: var(--muted);
+      max-width: 80%;
+    }
+    .empty-hint .gem { font-size: 2rem; display: block; margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>💎 Bible Study</h1>
+    <button class="new-study-btn" id="newStudy" type="button">New Study</button>
+  </header>
+
+  <main id="messages">
+    <div class="empty-hint" id="emptyHint">
+      <span class="gem">📖</span>
+      Ask about a passage, theme, or question to begin your study.
+    </div>
+  </main>
+
+  <form id="composer" autocomplete="off">
+    <textarea id="input" rows="1" placeholder="Study a passage… e.g. Jeremiah 8" enterkeyhint="send"></textarea>
+    <button id="send" type="submit" aria-label="Send">↑</button>
+  </form>
+
+  <script>
+    marked.setOptions({ breaks: true, gfm: true });
+
+    const messagesEl = document.getElementById("messages");
+    const emptyHint = document.getElementById("emptyHint");
+    const form = document.getElementById("composer");
+    const input = document.getElementById("input");
+    const sendBtn = document.getElementById("send");
+    const newStudyBtn = document.getElementById("newStudy");
+
+    let sessionId = null;   // created lazily on first send, per study
+    let busy = false;
+
+    function scrollToBottom() {
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function clearHint() {
+      if (emptyHint && emptyHint.parentNode) emptyHint.remove();
+    }
+
+    function addMessage(role, text) {
+      clearHint();
+      const el = document.createElement("div");
+      el.className = "msg " + role;
+      if (role === "agent") {
+        el.innerHTML = '<span class="typing"></span>';
+      } else {
+        el.textContent = text;
+      }
+      messagesEl.appendChild(el);
+      scrollToBottom();
+      return el;
+    }
+
+    function addSystem(text, isError) {
+      clearHint();
+      const el = document.createElement("div");
+      el.className = "msg system" + (isError ? " error" : "");
+      el.textContent = text;
+      messagesEl.appendChild(el);
+      scrollToBottom();
+    }
+
+    function renderMarkdown(el, raw) {
+      el.innerHTML = DOMPurify.sanitize(marked.parse(raw || ""));
+    }
+
+    async function ensureSession() {
+      if (sessionId) return sessionId;
+      const res = await fetch("/api/session", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(data.error || ("Failed to start session (HTTP " + res.status + ")"));
+      }
+      sessionId = data.session_id;
+      return sessionId;
+    }
+
+    function setBusy(state) {
+      busy = state;
+      sendBtn.disabled = state;
+      input.disabled = state;
+    }
+
+    async function sendMessage(text) {
+      setBusy(true);
+      addMessage("user", text);
+      const agentEl = addMessage("agent", "");
+      let accumulated = "";
+
+      try {
+        await ensureSession();
+
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session_id: sessionId, message: text }),
+        });
+
+        if (!res.ok) {
+          let msg = "Request failed (HTTP " + res.status + ")";
+          try { const j = await res.json(); if (j.error) msg = j.error; } catch (_) {}
+          throw new Error(msg);
+        }
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          // SSE frames are separated by a blank line.
+          const frames = buffer.split("\n\n");
+          buffer = frames.pop(); // keep the last (possibly partial) frame
+
+          for (const frame of frames) {
+            const line = frame.split("\n").find((l) => l.startsWith("data:"));
+            if (!line) continue;
+            let payload;
+            try { payload = JSON.parse(line.slice(5).trim()); } catch (_) { continue; }
+
+            if (payload.type === "delta") {
+              accumulated += payload.text;
+              renderMarkdown(agentEl, accumulated);
+              scrollToBottom();
+            } else if (payload.type === "notice") {
+              addSystem(payload.text, false);
+            } else if (payload.type === "error") {
+              throw new Error(payload.message || "Stream error");
+            }
+            // "done" needs no action; loop ends when the stream closes.
+          }
+        }
+
+        if (!accumulated.trim()) {
+          renderMarkdown(agentEl, "_(No response.)_");
+        }
+      } catch (err) {
+        agentEl.remove();
+        addSystem("⚠️ " + err.message, true);
+      } finally {
+        setBusy(false);
+        input.focus();
+      }
+    }
+
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      if (busy) return;
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = "";
+      autoGrow();
+      sendMessage(text);
+    });
+
+    // Enter sends; Shift+Enter makes a newline.
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        form.requestSubmit();
+      }
+    });
+
+    function autoGrow() {
+      input.style.height = "auto";
+      input.style.height = Math.min(input.scrollHeight, 140) + "px";
+    }
+    input.addEventListener("input", autoGrow);
+
+    newStudyBtn.addEventListener("click", () => {
+      if (busy) return;
+      sessionId = null;
+      messagesEl.innerHTML = "";
+      const hint = document.createElement("div");
+      hint.className = "empty-hint";
+      hint.innerHTML = '<span class="gem">📖</span>Ask about a passage, theme, or question to begin your study.';
+      messagesEl.appendChild(hint);
+      input.focus();
+    });
+
+    input.focus();
+  </script>
+</body>
+</html>
