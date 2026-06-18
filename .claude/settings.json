@@ -1,0 +1,11 @@
+{
+  "extraKnownMarketplaces": {
+    "marketclick360-skills": {
+      "source": {
+        "source": "github",
+        "repo": "marketclick360-ux/marketclick360-skills"
+      }
+    }
+  },
+  "enabledPlugins": ["mc360@marketclick360-skills"]
+}
